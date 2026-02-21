@@ -2,8 +2,31 @@
 #include <Wire.h>
 #include <Adafruit_LSM9DS1.h>
 #include <Adafruit_Sensor.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
 
 Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1();
+
+// BLE
+#define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+
+BLECharacteristic* pRepCharacteristic = nullptr;
+bool deviceConnected = false;
+
+class WonkaServerCallbacks : public BLEServerCallbacks {
+  void onConnect(BLEServer* pServer) override {
+    deviceConnected = true;
+    Serial.println("BLE: Phone connected!");
+  }
+  void onDisconnect(BLEServer* pServer) override {
+    deviceConnected = false;
+    Serial.println("BLE: Phone disconnected. Restarting advertising...");
+    pServer->startAdvertising();
+  }
+};
 
 #define SAMPLE_INTERVAL_MS 10   // 100Hz
 #define THRESHOLD_ENTER   -0.5f // m/s² — enter IN_REP (arm curling up past this)
@@ -33,6 +56,26 @@ void setup() {
 
   Serial.println("Peak detector ready. Do curls.");
   Serial.println("Format: millis,ay,state");
+
+  // BLE setup
+  BLEDevice::init("WonkaLift");
+  BLEServer* pServer = BLEDevice::createServer();
+  pServer->setCallbacks(new WonkaServerCallbacks());
+
+  BLEService* pService = pServer->createService(SERVICE_UUID);
+  pRepCharacteristic = pService->createCharacteristic(
+    CHARACTERISTIC_UUID,
+    BLECharacteristic::PROPERTY_NOTIFY
+  );
+  pRepCharacteristic->addDescriptor(new BLE2902());
+  pService->start();
+
+  BLEAdvertising* pAdvertising = BLEDevice::getAdvertising();
+  pAdvertising->addServiceUUID(SERVICE_UUID);
+  pAdvertising->setScanResponse(true);
+  BLEDevice::startAdvertising();
+
+  Serial.println("BLE advertising as 'WonkaLift'");
 }
 
 void loop() {
@@ -60,7 +103,11 @@ void loop() {
           repCount++;
           lastRepTime = now;
           Serial.printf(">>> REP %d DETECTED! (ay=%.2f)\n", repCount, ay);
-          // BLE notify placeholder — Task 3
+          if (deviceConnected) {
+            pRepCharacteristic->setValue(&repCount, 1);
+            pRepCharacteristic->notify();
+            Serial.printf("BLE: Notified rep %d\n", repCount);
+          }
         }
         repState = IDLE;
       }
