@@ -6,7 +6,9 @@
 Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1();
 
 #define SAMPLE_INTERVAL_MS 10   // 100Hz
-#define PEAK_THRESHOLD     0.0f // m/s² — zero crossing (rest=+8.4, peak=-8.7)
+#define THRESHOLD_ENTER   -0.5f // m/s² — enter IN_REP (arm curling up past this)
+#define THRESHOLD_EXIT     0.5f // m/s² — exit IN_REP (arm lowering past this)
+// Hysteresis band ±0.5f around zero prevents phantom toggling near the crossing
 #define COOLDOWN_MS        800  // minimum ms between reps (fast curls ~1s)
 
 typedef enum { IDLE, IN_REP } RepState;
@@ -45,15 +47,15 @@ void loop() {
 
   switch (repState) {
     case IDLE:
-      // Wait for ay to drop below threshold (arm curling up)
-      if (ay < PEAK_THRESHOLD) {
+      // Wait for ay to drop below entry threshold (arm curling up)
+      if (ay < THRESHOLD_ENTER) {
         repState = IN_REP;
       }
       break;
 
     case IN_REP:
-      // Wait for ay to rise back above threshold (arm lowering)
-      if (ay > PEAK_THRESHOLD) {
+      // Wait for ay to rise above exit threshold (arm lowering back down)
+      if (ay > THRESHOLD_EXIT) {
         if (now - lastRepTime > COOLDOWN_MS) {
           repCount++;
           lastRepTime = now;
