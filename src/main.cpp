@@ -13,7 +13,8 @@ Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1();
 // Change ACTIVE_EXERCISE before flashing to switch exercises
 #define EXERCISE_CURL           0
 #define EXERCISE_LATERAL_RAISE  1
-#define ACTIVE_EXERCISE         EXERCISE_CURL
+// #define ACTIVE_EXERCISE         EXERCISE_CURL
+#define ACTIVE_EXERCISE         EXERCISE_LATERAL_RAISE
 
 // ── Detection profile ────────────────────────────────────────
 struct DetectionProfile {
@@ -25,8 +26,9 @@ struct DetectionProfile {
 const DetectionProfile PROFILES[] = {
   // CURL: rest ay≈-7.5, top ay≈+7.3 — enter when ay drops below -0.5
   { -0.5f,  0.5f, false },
-  // LATERAL_RAISE: rest ay≈-1.1, top ay≈+7.8 — enter when ay rises above 3.5
-  {  3.5f,  2.5f, true  },
+  // LATERAL_RAISE (dorsal, flipped): rest ay is high, top ay is low
+  // enter when ay drops below 3.5, exit when ay rises above 4.5
+  {  3.5f,  4.5f, false },
 };
 
 static_assert(ACTIVE_EXERCISE < 2, "ACTIVE_EXERCISE out of range — valid values: 0 (CURL), 1 (LATERAL_RAISE)");
