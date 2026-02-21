@@ -55,7 +55,6 @@ void setup() {
   lsm.setupGyro(lsm.LSM9DS1_GYROSCALE_245DPS);
 
   Serial.println("Peak detector ready. Do curls.");
-  Serial.println("Format: millis,ay,state");
 
   // BLE setup
   BLEDevice::init("WonkaLift");
@@ -89,25 +88,24 @@ void loop() {
 
   float ay = accel.acceleration.y;
 
+  RepState prevState = repState;
+
   switch (repState) {
     case IDLE:
-      // Wait for ay to drop below entry threshold (arm curling up)
       if (ay < THRESHOLD_ENTER) {
         repState = IN_REP;
       }
       break;
 
     case IN_REP:
-      // Wait for ay to rise above exit threshold (arm lowering back down)
       if (ay > THRESHOLD_EXIT) {
         if (now - lastRepTime > COOLDOWN_MS) {
           repCount++;
           lastRepTime = now;
-          Serial.printf(">>> REP %d DETECTED! (ay=%.2f)\n", repCount, ay);
+          Serial.printf("REP %d\n", repCount);
           if (deviceConnected) {
             pRepCharacteristic->setValue(&repCount, 1);
             pRepCharacteristic->notify();
-            Serial.printf("BLE: Notified rep %d\n", repCount);
           }
         }
         repState = IDLE;
@@ -115,6 +113,8 @@ void loop() {
       break;
   }
 
-  // Continuous debug output for tuning
-  Serial.printf("%lu,%.3f,%s\n", now, ay, repState == IDLE ? "IDLE" : "IN_REP");
+  // Only print on state transitions
+  if (repState != prevState) {
+    Serial.println(repState == IN_REP ? "-> IN_REP" : "-> IDLE");
+  }
 }
