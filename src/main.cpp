@@ -86,35 +86,9 @@ void loop() {
   sensors_event_t accel, mag, gyro, temp;
   lsm.getEvent(&accel, &mag, &gyro, &temp);
 
-  float ay = accel.acceleration.y;
-
-  RepState prevState = repState;
-
-  switch (repState) {
-    case IDLE:
-      if (ay < THRESHOLD_ENTER) {
-        repState = IN_REP;
-      }
-      break;
-
-    case IN_REP:
-      if (ay > THRESHOLD_EXIT) {
-        if (now - lastRepTime > COOLDOWN_MS) {
-          repCount++;
-          lastRepTime = now;
-          Serial.printf("REP %d\n", repCount);
-          if (deviceConnected) {
-            pRepCharacteristic->setValue(&repCount, 1);
-            pRepCharacteristic->notify();
-          }
-        }
-        repState = IDLE;
-      }
-      break;
-  }
-
-  // Only print on state transitions
-  if (repState != prevState) {
-    Serial.println(repState == IN_REP ? "-> IN_REP" : "-> IDLE");
-  }
+  // LATERAL RAISE AXIS OBSERVATION — print all axes every sample
+  Serial.printf("ax=%.2f ay=%.2f az=%.2f\n",
+    accel.acceleration.x,
+    accel.acceleration.y,
+    accel.acceleration.z);
 }
