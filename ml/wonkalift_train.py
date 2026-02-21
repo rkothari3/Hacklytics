@@ -359,7 +359,7 @@ files = {
 for name, path in files.items():
     with open(path, "rb") as f:
         b64 = base64.b64encode(f.read()).decode("utf-8")
-    print(f"\n=== {name} ===")
+    print("\n=== " + name + " ===")
     print("BASE64_START")
     print(b64)
     print("BASE64_END")
