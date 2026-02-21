@@ -29,6 +29,7 @@ const DetectionProfile PROFILES[] = {
   {  3.5f,  2.5f, true  },
 };
 
+static_assert(ACTIVE_EXERCISE < 2, "ACTIVE_EXERCISE out of range — valid values: 0 (CURL), 1 (LATERAL_RAISE)");
 const DetectionProfile& profile = PROFILES[ACTIVE_EXERCISE];
 
 // ── BLE ──────────────────────────────────────────────────────
