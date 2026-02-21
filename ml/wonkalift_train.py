@@ -303,38 +303,63 @@ plt.show()
 #
 # We also apply FLOAT16 quantization — this halves the model size with minimal
 # accuracy loss. Fine for a 3-class classifier on structured sensor data.
+#
+# NOTE: Serverless compute does not mount DBFS (/dbfs/FileStore is unavailable).
+# Files are saved to /tmp and exported as base64 strings for local download.
 
+import base64
+import os
+
+# Convert to TFLite
 converter = tf.lite.TFLiteConverter.from_keras_model(model)
 converter.optimizations = [tf.lite.Optimize.DEFAULT]
 converter.target_spec.supported_types = [tf.float16]
-
 tflite_model = converter.convert()
 
-# Save locally on the cluster
-tflite_path = "/tmp/wonkalift_classifier.tflite"
+# Save all outputs to /tmp
+os.makedirs("/tmp/wonkalift", exist_ok=True)
+
+tflite_path = "/tmp/wonkalift/wonkalift_classifier.tflite"
+mean_path   = "/tmp/wonkalift/X_mean.npy"
+std_path    = "/tmp/wonkalift/X_std.npy"
+
 with open(tflite_path, "wb") as f:
     f.write(tflite_model)
 
-size_kb = len(tflite_model) / 1024
-print(f"TFLite model saved: {tflite_path}")
-print(f"Model size: {size_kb:.1f} KB")
+np.save(mean_path, X_mean)
+np.save(std_path,  X_std)
 
-# Also copy to FileStore so you can download it from the Databricks UI
-dbfs_tflite_path = "/dbfs/FileStore/wonkalift/wonkalift_classifier.tflite"
-dbfs_mean_path   = "/dbfs/FileStore/wonkalift/X_mean.npy"
-dbfs_std_path    = "/dbfs/FileStore/wonkalift/X_std.npy"
+print(f"TFLite model: {len(tflite_model)/1024:.1f} KB")
+print("All files saved to /tmp/wonkalift/")
+print("Run the next cell to get base64 download strings.")
 
-os.makedirs("/dbfs/FileStore/wonkalift", exist_ok=True)
+# COMMAND ----------
+# Cell 11 — Download: export files as base64
+#
+# Serverless has no DBFS access, so we encode each file as base64.
+# Copy each block and decode locally using the instructions below.
+#
+# On your local machine, run this Python snippet for each file:
+#
+#   import base64
+#   b64 = "paste_base64_string_here"
+#   with open("wonkalift_classifier.tflite", "wb") as f:
+#       f.write(base64.b64decode(b64))
+#
+# Repeat for X_mean.npy and X_std.npy (change the output filename each time).
 
-with open(dbfs_tflite_path, "wb") as f:
-    f.write(tflite_model)
+import base64
 
-import shutil
-shutil.copy("/tmp/X_mean.npy", dbfs_mean_path)
-shutil.copy("/tmp/X_std.npy",  dbfs_std_path)
+files = {
+    "wonkalift_classifier.tflite": tflite_path,
+    "X_mean.npy":                  mean_path,
+    "X_std.npy":                   std_path,
+}
 
-print(f"\nFiles saved to FileStore (downloadable from Databricks UI):")
-print(f"  {dbfs_tflite_path}")
-print(f"  {dbfs_mean_path}")
-print(f"  {dbfs_std_path}")
-print("\nDone! Download wonkalift_classifier.tflite and bundle it into the React Native app.")
+for name, path in files.items():
+    with open(path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode("utf-8")
+    print(f"\n=== {name} ===")
+    print("BASE64_START")
+    print(b64)
+    print("BASE64_END")
