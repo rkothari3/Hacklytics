@@ -6,7 +6,7 @@ The hardware is an ESP32 microcontroller paired with an LSM9DS1 9-DOF IMU mounte
 Features
 Rep Detection — The ESP32 performs peak detection on the Y-axis accelerometer signal. Every completed rep triggers one BLE packet containing the raw IMU window for that rep. No continuous streaming, no BLE flooding.
 Tempo Tracking — The app measures time between rep peaks to calculate concentric and eccentric phase durations. Each rep is scored against scientifically validated Time Under Tension targets and flagged as on-pace, too fast, or too slow.
-Form Classification — A TFLite model running on-device classifies each rep's IMU window as good form or bad form. The model is trained on bicep curls, dumbbell rows, and lateral raises — the three exercises supported in v1. The user manually selects their exercise before starting a set, so the model focuses entirely on form quality rather than exercise identification.
+Form Classification — A TFLite model running on-device classifies each rep's IMU window into one of three form quality classes: GOOD, SLOPPY (minor deviation — partial range of motion or slight momentum), or BAD (clear breakdown — swinging, no control, wrong plane). The model is trained on bicep curls and lateral raises — the two exercises supported in v1. The user manually selects their exercise before starting a set, so the model focuses entirely on form quality rather than exercise identification.
 Wonka River Game UI — The core workout screen is a side-scrolling chocolate river game. Wonka's boat moves through a channel whose walls respond to your rep quality. Good form and good tempo keeps the boat centered and the channel wide. Bad reps cause wall collisions, screen shake, and Oompa Loompa sound effects. At the end of a set, hitting above 80% good reps awards a Golden Ticket. Below that, the factory rejects you. A session leaderboard tracks Golden Tickets across users.
 Strength Projection — After each session, the app displays a projection chart showing estimated 1RM progression over 8 weeks based on current performance. Projections use the Brzycki formula for 1RM estimation and apply a quality multiplier derived from your average form and tempo scores — better training quality accelerates the projected progression curve.
 Session Analytics Dashboard — Historical session data pulled from Snowflake powers a post-workout dashboard showing tempo score trends, form quality over time, rep volume, and percentile benchmarking against the OpenPowerlifting public dataset.
@@ -33,14 +33,11 @@ ML
 
 Training: Python + TensorFlow/Keras on Databricks
 Architecture: 1D CNN — input shape (50, 6) representing 50 timesteps of ax, ay, az, gx, gy, gz
-Output: Binary form classifier (good / bad) per exercise
-Training data: Self-collected — 50 good reps + 50 bad reps × 3 exercises = 300labeled reps
+Output: 3-class form classifier (GOOD / SLOPPY / BAD) per exercise
+Training data: Self-collected — 50 good + 50 sloppy + 50 bad reps × 2 exercises = 300 labeled reps
 Export: TFLite flatbuffer bundled into the React Native app assets
 
 Backend + Data
 
 Snowflake as the session data warehouse — written to directly from the app via Snowflake REST API after each workout
 Databricks for model training pipeline and experiment tracking
-
-
-IGNORE RAYAN.MD
