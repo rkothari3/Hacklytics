@@ -14,7 +14,7 @@ Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1();
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 
 BLECharacteristic* pRepCharacteristic = nullptr;
-bool deviceConnected = false;
+volatile bool deviceConnected = false;
 
 class WonkaServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer* pServer) override {
@@ -65,8 +65,9 @@ void setup() {
   BLEService* pService = pServer->createService(SERVICE_UUID);
   pRepCharacteristic = pService->createCharacteristic(
     CHARACTERISTIC_UUID,
-    BLECharacteristic::PROPERTY_NOTIFY
+    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
   );
+  pRepCharacteristic->setValue(&repCount, 1);  // initial value = 0
   pRepCharacteristic->addDescriptor(new BLE2902());
   pService->start();
 
