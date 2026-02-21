@@ -9,7 +9,29 @@
 
 Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1();
 
-// BLE
+// ── Exercise selection ───────────────────────────────────────
+// Change ACTIVE_EXERCISE before flashing to switch exercises
+#define EXERCISE_CURL           0
+#define EXERCISE_LATERAL_RAISE  1
+#define ACTIVE_EXERCISE         EXERCISE_CURL
+
+// ── Detection profile ────────────────────────────────────────
+struct DetectionProfile {
+  float enterThreshold;  // ay value that triggers IDLE → IN_REP
+  float exitThreshold;   // ay value that triggers IN_REP → IDLE + rep count
+  bool  enterAbove;      // true = enter when ay > threshold, false = enter when ay < threshold
+};
+
+const DetectionProfile PROFILES[] = {
+  // CURL: rest ay≈-7.5, top ay≈+7.3 — enter when ay drops below -0.5
+  { -0.5f,  0.5f, false },
+  // LATERAL_RAISE: rest ay≈-1.1, top ay≈+7.8 — enter when ay rises above 3.5
+  {  3.5f,  2.5f, true  },
+};
+
+const DetectionProfile& profile = PROFILES[ACTIVE_EXERCISE];
+
+// ── BLE ──────────────────────────────────────────────────────
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 
@@ -28,18 +50,16 @@ class WonkaServerCallbacks : public BLEServerCallbacks {
   }
 };
 
-#define SAMPLE_INTERVAL_MS 10   // 100Hz
-#define THRESHOLD_ENTER   -0.5f // m/s² — enter IN_REP (arm curling up past this)
-#define THRESHOLD_EXIT     0.5f // m/s² — exit IN_REP (arm lowering past this)
-// Hysteresis band ±0.5f around zero prevents phantom toggling near the crossing
-#define COOLDOWN_MS        800  // minimum ms between reps (fast curls ~1s)
+// ── Sampling + detection ─────────────────────────────────────
+#define SAMPLE_INTERVAL_MS 10
+#define COOLDOWN_MS        800
 
 typedef enum { IDLE, IN_REP } RepState;
 
-RepState repState = IDLE;
-unsigned long lastRepTime = 0;
+RepState      repState       = IDLE;
+unsigned long lastRepTime    = 0;
 unsigned long lastSampleTime = 0;
-uint8_t repCount = 0;
+uint8_t       repCount       = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -54,7 +74,8 @@ void setup() {
   lsm.setupMag(lsm.LSM9DS1_MAGGAIN_4GAUSS);
   lsm.setupGyro(lsm.LSM9DS1_GYROSCALE_245DPS);
 
-  Serial.println("Peak detector ready. Do curls.");
+  const char* exName = (ACTIVE_EXERCISE == EXERCISE_CURL) ? "CURL" : "LATERAL_RAISE";
+  Serial.printf("Exercise: %s | Ready. Do reps.\n", exName);
 
   // BLE setup
   BLEDevice::init("WonkaLift");
@@ -66,7 +87,7 @@ void setup() {
     CHARACTERISTIC_UUID,
     BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
   );
-  pRepCharacteristic->setValue(&repCount, 1);  // initial value = 0
+  pRepCharacteristic->setValue(&repCount, 1);
   pRepCharacteristic->addDescriptor(new BLE2902());
   pService->start();
 
@@ -86,9 +107,35 @@ void loop() {
   sensors_event_t accel, mag, gyro, temp;
   lsm.getEvent(&accel, &mag, &gyro, &temp);
 
-  // LATERAL RAISE AXIS OBSERVATION — print all axes every sample
-  Serial.printf("ax=%.2f ay=%.2f az=%.2f\n",
-    accel.acceleration.x,
-    accel.acceleration.y,
-    accel.acceleration.z);
+  float ay = accel.acceleration.y;
+  RepState prevState = repState;
+
+  switch (repState) {
+    case IDLE:
+      if (profile.enterAbove ? (ay > profile.enterThreshold)
+                             : (ay < profile.enterThreshold)) {
+        repState = IN_REP;
+      }
+      break;
+
+    case IN_REP:
+      if (profile.enterAbove ? (ay < profile.exitThreshold)
+                             : (ay > profile.exitThreshold)) {
+        if (now - lastRepTime > COOLDOWN_MS) {
+          repCount++;
+          lastRepTime = now;
+          Serial.printf("REP %d\n", repCount);
+          if (deviceConnected) {
+            pRepCharacteristic->setValue(&repCount, 1);
+            pRepCharacteristic->notify();
+          }
+        }
+        repState = IDLE;
+      }
+      break;
+  }
+
+  if (repState != prevState) {
+    Serial.println(repState == IN_REP ? "-> IN_REP" : "-> IDLE");
+  }
 }
