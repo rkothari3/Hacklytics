@@ -20,13 +20,17 @@ struct DetectionProfile {
   float enterThreshold;  // ay value that triggers IDLE → IN_REP
   float exitThreshold;   // ay value that triggers IN_REP → IDLE + fires rep
   bool  enterAbove;      // true = enter when ay > threshold
+  float minDepth;        // ay must reach below this value (enterAbove=false) during IN_REP
+                         // for the rep to count — filters half-range reps at hardware level
 };
 
 const DetectionProfile PROFILES[] = {
-    // CURL: rest ay≈-7.5, top ay≈+7.3 — enter when ay drops below -0.5
-    {-0.5f, 0.5f, false},
-    // LATERAL_RAISE (dorsal, flipped): rest ay high, top ay low
-    {3.5f, 4.5f, false},
+    // CURL: rest ay≈+1.9, bottom ay≈-8.0
+    // GOOD bottoms out at min -5.8; sloppy reps peak at -3.0 at best → gate at -4.5
+    {-0.5f, 0.5f, false, -4.5f},
+    // LATERAL_RAISE (dorsal): rest ay≈+5.8, bottom ay≈-1.3
+    // GOOD bottoms at max 0.3; sloppy reps only reach 3.5 at best → gate at 1.5
+    {3.5f, 4.5f, false, 1.5f},
 };
 
 static_assert(ACTIVE_EXERCISE < 2, "ACTIVE_EXERCISE out of range — valid: 0=CURL, 1=LATERAL_RAISE");
@@ -80,6 +84,7 @@ RepState      repState       = IDLE;
 unsigned long lastRepTime    = 0;
 unsigned long lastSampleTime = 0;
 uint8_t       repCount       = 0;
+float         repMinAy       = 0.0f;  // tracks deepest ay seen during current IN_REP
 
 // ── BLE handles ──────────────────────────────────────────────
 BLECharacteristic* pRepChar = nullptr;
@@ -211,11 +216,15 @@ void loop() {
           window[i] = preBuf[(preBufIdx + i) % PRE_SAMPLES];
         }
         windowIdx = PRE_SAMPLES;
+        repMinAy  = ay;  // seed with the triggering sample
         repState  = IN_REP;
       }
       break;
 
     case IN_REP:
+      // Track deepest ay reached (enterAbove=false means lower = deeper)
+      if (ay < repMinAy) repMinAy = ay;
+
       // Collect live samples into the window
       if (windowIdx < WINDOW_SIZE) {
         window[windowIdx++] = s;
@@ -223,17 +232,23 @@ void loop() {
 
       if (profile.enterAbove ? (ay < profile.exitThreshold) : (ay > profile.exitThreshold)) {
         if (now - lastRepTime > COOLDOWN_MS) {
-          // Pad any remaining slots with the last sample
-          while (windowIdx < WINDOW_SIZE) {
-            window[windowIdx++] = s;
-          }
-          repCount++;
-          lastRepTime = now;
+          // Only count the rep if the arm reached the required depth
+          if (repMinAy < profile.minDepth) {
+            // Pad any remaining slots with the last sample
+            while (windowIdx < WINDOW_SIZE) {
+              window[windowIdx++] = s;
+            }
+            repCount++;
+            lastRepTime = now;
 
-          if (deviceConnected) {
-            sendRepWindow();
+            if (deviceConnected) {
+              sendRepWindow();
+            } else {
+              Serial.printf("REP %d (no phone connected)\n", repCount);
+            }
           } else {
-            Serial.printf("REP %d (no phone connected)\n", repCount);
+            Serial.printf("REP IGNORED — insufficient depth (minAy=%.2f, required<%.2f)\n",
+                          repMinAy, profile.minDepth);
           }
         }
         windowIdx = 0;
