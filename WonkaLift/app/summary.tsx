@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   Image,
   SafeAreaView,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { IMG } from '../src/game/images';
 import { WONKA } from '../src/constants/wonka';
+import { useAppData } from '../src/contexts/AppDataContext';
 import { getLastSessionResult } from './workout';
 import type { RepRecord } from '../src/types';
 
@@ -24,12 +25,27 @@ function RepBar({ rep }: { rep: RepRecord }) {
 export default function SummaryScreen() {
   const result = getLastSessionResult();
   const router = useRouter();
+  const { saveWorkout } = useAppData();
+  const savedRef = useRef(false);
+
+  // Save this session into history once on mount (only if reps were actually done)
+  useEffect(() => {
+    if (!result || savedRef.current || result.totalReps === 0) return;
+    savedRef.current = true;
+    saveWorkout({
+      date: Date.now(),
+      exercise: result.exercise,
+      totalReps: result.totalReps,
+      qualityPct: result.qualityPct,
+      goldenTicket: result.goldenTicket,
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!result) {
     return (
       <SafeAreaView style={styles.root}>
         <Text style={styles.noData}>No session data.</Text>
-        <TouchableOpacity onPress={() => router.replace('/')}>
+        <TouchableOpacity onPress={() => router.replace('/(tabs)')}>
           <Text style={styles.link}>Go Home</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -109,7 +125,7 @@ export default function SummaryScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.button, styles.buttonSecondary]}
-            onPress={() => router.replace('/')}
+            onPress={() => router.replace('/(tabs)')}
           >
             <Text style={[styles.buttonText, styles.buttonTextSecondary]}>DONE</Text>
           </TouchableOpacity>
