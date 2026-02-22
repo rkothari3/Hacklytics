@@ -1,103 +1,204 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { estimateOneRepMax } from '../src/utils/tempoScoring';
+import React from 'react';
+import {
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { IMG } from '../src/game/images';
+import { WONKA } from '../src/constants/wonka';
 import { getLastSessionResult } from './workout';
+import type { RepRecord } from '../src/types';
 
-export default function SessionSummaryScreen() {
+function RepBar({ rep }: { rep: RepRecord }) {
+  const color = rep.formClass === 'BAD' ? WONKA.candyRed : rep.tempoWarning ? WONKA.gold : WONKA.green;
+  const height = rep.formClass === 'BAD' ? 10 : rep.tempoWarning ? 18 : 28;
+  return <View style={[styles.repBar, { backgroundColor: color, height }]} />;
+}
+
+export default function SummaryScreen() {
   const result = getLastSessionResult();
   const router = useRouter();
-  const [weightKg, setWeightKg] = useState('');
 
   if (!result) {
     return (
-      <View style={styles.container}>
-        <Text>No session data.</Text>
+      <SafeAreaView style={styles.root}>
+        <Text style={styles.noData}>No session data.</Text>
         <TouchableOpacity onPress={() => router.replace('/')}>
           <Text style={styles.link}>Go Home</Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
-  const { totalReps, onPaceCount, tooFastCount, tooSlowCount, qualityPct } = result;
-  const goldenTicket = qualityPct >= 80 && totalReps >= 5;
-
-  const weight = parseFloat(weightKg);
-  const oneRM = !isNaN(weight) && weight > 0 && totalReps > 0
-    ? estimateOneRepMax(weight, totalReps)
-    : null;
+  const {
+    totalReps,
+    goodCount,
+    badCount,
+    tempoWarningCount,
+    onPaceCount,
+    tooFastCount,
+    tooSlowCount,
+    qualityPct,
+    goldenTicket,
+    exercise,
+    reps,
+  } = result;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Set Complete</Text>
+    <SafeAreaView style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor={WONKA.bg} />
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <View style={[styles.banner, { backgroundColor: goldenTicket ? WONKA.gold : '#3A0000' }]}>
+          <Image
+            source={goldenTicket ? IMG.goldenTicket : IMG.factoryRejected}
+            style={styles.bannerImage}
+            resizeMode="contain"
+          />
+          <Text
+            style={[styles.bannerSub, { color: goldenTicket ? WONKA.chocolateMid : '#FF6666' }]}
+          >
+            {goldenTicket
+              ? `${qualityPct}% good form -- Wonka is impressed!`
+              : `${qualityPct}% good form -- need 80% for the ticket.`}
+          </Text>
+        </View>
 
-      {goldenTicket ? (
-        <Text style={styles.goldenTicket}>GOLDEN TICKET EARNED</Text>
-      ) : (
-        <Text style={styles.noTicket}>Try again next set</Text>
-      )}
+        <Text style={styles.sectionTitle}>FORM QUALITY</Text>
+        <View style={styles.statsGrid}>
+          <StatBox label="TOTAL" value={totalReps} />
+          <StatBox label="GOOD" value={goodCount} color={WONKA.green} />
+          <StatBox label="BAD" value={badCount} color={WONKA.candyRed} />
+          <StatBox label="TEMPO" value={tempoWarningCount} color={WONKA.gold} />
+        </View>
 
-      <View style={styles.statsBlock}>
-        <StatRow label="Total Reps" value={String(totalReps)} />
-        <StatRow label="On Pace" value={String(onPaceCount)} color="#1a8a1a" />
-        <StatRow label="Too Fast" value={String(tooFastCount)} color="#cc7700" />
-        <StatRow label="Too Slow" value={String(tooSlowCount)} color="#cc0000" />
-        <StatRow label="Quality" value={`${qualityPct}%`} />
-      </View>
+        <Text style={styles.sectionTitle}>TEMPO</Text>
+        <View style={styles.statsGrid}>
+          <StatBox label="ON PACE" value={onPaceCount} color={WONKA.green} />
+          <StatBox label="TOO FAST" value={tooFastCount} color={WONKA.orange} />
+          <StatBox label="TOO SLOW" value={tooSlowCount} color={WONKA.candyRed} />
+        </View>
 
-      <View style={styles.oneRmRow}>
-        <Text style={styles.oneRmLabel}>Weight (kg):</Text>
-        <TextInput
-          style={styles.input}
-          keyboardType="numeric"
-          value={weightKg}
-          onChangeText={setWeightKg}
-          placeholder="e.g. 20"
-        />
-      </View>
-      {oneRM !== null ? (
-        <Text style={styles.oneRmResult}>Estimated 1RM: {oneRM.toFixed(1)} kg</Text>
-      ) : null}
+        <Text style={styles.sectionTitle}>REP QUALITY OVER TIME</Text>
+        <View style={styles.chartContainer}>
+          {reps.map((rep, i) => (
+            <RepBar key={i} rep={rep} />
+          ))}
+        </View>
+        <View style={styles.chartLegend}>
+          <View style={[styles.legendDot, { backgroundColor: WONKA.green }]} />
+          <Text style={styles.legendText}>Good</Text>
+          <View style={[styles.legendDot, { backgroundColor: WONKA.gold }]} />
+          <Text style={styles.legendText}>Off Tempo</Text>
+          <View style={[styles.legendDot, { backgroundColor: WONKA.candyRed }]} />
+          <Text style={styles.legendText}>Bad</Text>
+        </View>
 
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.button} onPress={() => router.replace('/exercise-select')}>
-          <Text style={styles.buttonText}>New Set</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.button, styles.buttonSecondary]} onPress={() => router.replace('/')}>
-          <Text style={[styles.buttonText, styles.buttonTextSecondary]}>Done</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+        <Text style={styles.exerciseLabel}>
+          {exercise.replace('_', ' ').toUpperCase()}
+        </Text>
+
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.button} onPress={() => router.replace('/exercise-select')}>
+            <Text style={styles.buttonText}>NEW SET</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, styles.buttonSecondary]}
+            onPress={() => router.replace('/')}
+          >
+            <Text style={[styles.buttonText, styles.buttonTextSecondary]}>DONE</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-function StatRow({ label, value, color }: { label: string; value: string; color?: string }) {
+function StatBox({ label, value, color }: { label: string; value: number; color?: string }) {
   return (
-    <View style={styles.statRow}>
+    <View style={[styles.statBox, color ? { borderColor: color } : undefined]}>
+      <Text style={[styles.statNum, color ? { color } : undefined]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, color ? { color } : null]}>{value}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', paddingTop: 80, padding: 24, backgroundColor: '#fff' },
-  title: { fontSize: 28, fontWeight: '700', marginBottom: 16 },
-  goldenTicket: { fontSize: 20, fontWeight: '700', color: '#b8860b', marginBottom: 24 },
-  noTicket: { fontSize: 16, color: '#888', marginBottom: 24 },
-  statsBlock: { width: '100%', borderRadius: 8, borderWidth: 1, borderColor: '#eee', marginBottom: 24 },
-  statRow: { flexDirection: 'row', justifyContent: 'space-between', padding: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: '#eee' },
-  statLabel: { fontSize: 16, color: '#555' },
-  statValue: { fontSize: 16, fontWeight: '600', color: '#1a1a1a' },
-  oneRmRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 12 },
-  oneRmLabel: { fontSize: 16, color: '#333' },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6, width: 100, fontSize: 16 },
-  oneRmResult: { fontSize: 18, fontWeight: '600', color: '#1a1a1a', marginBottom: 24 },
-  actions: { flexDirection: 'row', gap: 12, marginTop: 8 },
-  button: { backgroundColor: '#1a1a1a', paddingVertical: 12, paddingHorizontal: 28, borderRadius: 8 },
-  buttonSecondary: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#1a1a1a' },
-  buttonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  buttonTextSecondary: { color: '#1a1a1a' },
-  link: { color: '#1a1a1a', marginTop: 16, textDecorationLine: 'underline' },
+  root: { flex: 1, backgroundColor: WONKA.bg },
+  scroll: { paddingBottom: 40 },
+  noData: { color: WONKA.textLight, textAlign: 'center', marginTop: 100, fontSize: 16 },
+  link: { color: WONKA.gold, textAlign: 'center', marginTop: 16, textDecorationLine: 'underline' },
+  banner: { padding: 24, alignItems: 'center', marginBottom: 20 },
+  bannerImage: { width: 260, height: 120, marginBottom: 8 },
+  bannerSub: { fontSize: 14, fontWeight: '600', marginTop: 6, textAlign: 'center' },
+  sectionTitle: {
+    color: WONKA.textGold,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  statsGrid: { flexDirection: 'row', paddingHorizontal: 12, gap: 8, marginBottom: 16 },
+  statBox: {
+    flex: 1,
+    backgroundColor: '#2A1000',
+    borderRadius: 12,
+    padding: 10,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: WONKA.goldDark,
+  },
+  statNum: { color: WONKA.textLight, fontSize: 26, fontWeight: '900' },
+  statLabel: { color: WONKA.textGold, fontSize: 9, fontWeight: '700', letterSpacing: 0.8, marginTop: 2 },
+  chartContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    height: 36,
+    marginHorizontal: 16,
+    backgroundColor: '#2A1000',
+    borderRadius: 8,
+    padding: 4,
+    gap: 2,
+    overflow: 'hidden',
+  },
+  repBar: { width: 6, borderRadius: 2 },
+  chartLegend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginTop: 6,
+    gap: 6,
+  },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { color: WONKA.textLight, fontSize: 11, marginRight: 8 },
+  exerciseLabel: {
+    color: WONKA.textLight,
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 16,
+    opacity: 0.6,
+    letterSpacing: 2,
+  },
+  actions: { flexDirection: 'row', gap: 12, justifyContent: 'center', marginTop: 24, paddingHorizontal: 16 },
+  button: {
+    flex: 1,
+    backgroundColor: WONKA.orange,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  buttonSecondary: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: WONKA.gold,
+  },
+  buttonText: { color: WONKA.textLight, fontSize: 16, fontWeight: '900', letterSpacing: 1 },
+  buttonTextSecondary: { color: WONKA.gold },
 });

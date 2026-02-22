@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { WINDOW_SIZE, N_CHANNELS } from '../constants/ble';
 
 export type ConnectionState = 'disconnected' | 'scanning' | 'connecting' | 'connected';
 
@@ -6,6 +7,7 @@ interface BLEContextValue {
   connectionState: ConnectionState;
   repEventCount: number;
   lastRepTimestamp: number | null;
+  lastRepWindow: number[] | null;
   error: string | null;
   startScan: () => void;
   disconnect: () => void;
@@ -13,28 +15,39 @@ interface BLEContextValue {
 
 const BLEContext = createContext<BLEContextValue | null>(null);
 
-// Web mock — simulates a BLE connection and fires a rep event every 3 seconds
-// so the full workout UI can be tested in the browser without hardware.
+function generateFakeWindow(): number[] {
+  const window: number[] = [];
+  for (let t = 0; t < WINDOW_SIZE; t++) {
+    const phase = (t / WINDOW_SIZE) * Math.PI * 2;
+    window.push(
+      Math.sin(phase) * 3 + Math.random() * 0.5,
+      Math.sin(phase) * 8 + Math.random() * 0.3,
+      Math.random() * 0.5 - 5,
+      Math.sin(phase + 0.5) * 1.5 + Math.random() * 0.1,
+      Math.random() * 0.2,
+      Math.random() * 0.2,
+    );
+  }
+  return window;
+}
+
 export function BLEProvider({ children }: { children: React.ReactNode }) {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [repEventCount, setRepEventCount] = useState(0);
   const [lastRepTimestamp, setLastRepTimestamp] = useState<number | null>(null);
+  const [lastRepWindow, setLastRepWindow] = useState<number[] | null>(null);
   const [error] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startScan = useCallback(() => {
     setConnectionState('scanning');
-
-    // Simulate scan finding the device after 800ms, then connecting after another 200ms
     setTimeout(() => {
       setConnectionState('connecting');
       setTimeout(() => {
         setConnectionState('connected');
-
-        // Fire a simulated rep every 3 seconds while connected
         intervalRef.current = setInterval(() => {
-          const ts = Date.now();
-          setLastRepTimestamp(ts);
+          setLastRepWindow(generateFakeWindow());
+          setLastRepTimestamp(Date.now());
           setRepEventCount((n) => n + 1);
         }, 3000);
       }, 200);
@@ -49,19 +62,19 @@ export function BLEProvider({ children }: { children: React.ReactNode }) {
     setConnectionState('disconnected');
     setRepEventCount(0);
     setLastRepTimestamp(null);
+    setLastRepWindow(null);
   }, []);
 
-  // Clean up interval if the provider unmounts while connected
   useEffect(() => {
     return () => {
-      if (intervalRef.current !== null) {
-        clearInterval(intervalRef.current);
-      }
+      if (intervalRef.current !== null) clearInterval(intervalRef.current);
     };
   }, []);
 
   return (
-    <BLEContext.Provider value={{ connectionState, repEventCount, lastRepTimestamp, error, startScan, disconnect }}>
+    <BLEContext.Provider
+      value={{ connectionState, repEventCount, lastRepTimestamp, lastRepWindow, error, startScan, disconnect }}
+    >
       {children}
     </BLEContext.Provider>
   );

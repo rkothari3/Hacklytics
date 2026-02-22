@@ -1,50 +1,62 @@
-import React, { createContext, useCallback, useContext, useEffect, useReducer } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react';
 import { ExerciseType } from '../constants/exercises';
-import { scoreRep, TempoScore } from '../utils/tempoScoring';
+import { GOLDEN_TICKET_THRESHOLD } from '../constants/wonka';
+import type { FormClass, LeaderboardEntry, RepRecord, SessionResult, TempoScore } from '../types';
+import { classifyForm, loadFormModel } from '../utils/formClassifier';
+import { scoreRep } from '../utils/tempoScoring';
+import { speakCoaching } from '../utils/voiceCoach';
 import { useBLE } from './BLEContext';
-
-export interface RepRecord {
-  index: number;
-  timestamp: number;
-  intervalMs: number;
-  tempoScore: TempoScore;
-}
-
-export interface SessionResult {
-  reps: RepRecord[];
-  totalReps: number;
-  onPaceCount: number;
-  tooFastCount: number;
-  tooSlowCount: number;
-  qualityPct: number;
-}
 
 interface WorkoutState {
   isActive: boolean;
   exercise: ExerciseType | null;
   reps: RepRecord[];
+  leaderboard: LeaderboardEntry[];
 }
 
 type WorkoutAction =
   | { type: 'START_SESSION'; exercise: ExerciseType }
   | { type: 'ADD_REP'; rep: RepRecord }
-  | { type: 'END_SESSION' };
+  | { type: 'END_SESSION' }
+  | { type: 'UPDATE_LEADERBOARD'; entry: LeaderboardEntry };
 
 function reducer(state: WorkoutState, action: WorkoutAction): WorkoutState {
   switch (action.type) {
     case 'START_SESSION':
-      return { isActive: true, exercise: action.exercise, reps: [] };
+      return { ...state, isActive: true, exercise: action.exercise, reps: [] };
     case 'ADD_REP':
       return { ...state, reps: [...state.reps, action.rep] };
     case 'END_SESSION':
       return { ...state, isActive: false };
+    case 'UPDATE_LEADERBOARD': {
+      const existing = state.leaderboard.findIndex((e) => e.name === action.entry.name);
+      if (existing >= 0) {
+        const updated = [...state.leaderboard];
+        updated[existing] = action.entry;
+        return { ...state, leaderboard: updated };
+      }
+      return { ...state, leaderboard: [...state.leaderboard, action.entry] };
+    }
   }
 }
+
+const INITIAL_STATE: WorkoutState = {
+  isActive: false,
+  exercise: null,
+  reps: [],
+  leaderboard: [
+    { name: 'Charlie', goldenTickets: 3, isCurrentUser: false },
+    { name: 'Augustus', goldenTickets: 1, isCurrentUser: false },
+    { name: 'Violet', goldenTickets: 2, isCurrentUser: false },
+    { name: 'YOU', goldenTickets: 0, isCurrentUser: true },
+  ],
+};
 
 interface WorkoutContextValue {
   isActive: boolean;
   exercise: ExerciseType | null;
   reps: RepRecord[];
+  leaderboard: LeaderboardEntry[];
   startSession: (exercise: ExerciseType) => void;
   endSession: () => SessionResult;
 }
@@ -52,27 +64,44 @@ interface WorkoutContextValue {
 const WorkoutContext = createContext<WorkoutContextValue | null>(null);
 
 export function WorkoutProvider({ children }: { children: React.ReactNode }) {
-  const { repEventCount, lastRepTimestamp } = useBLE();
-  const [state, dispatch] = useReducer(reducer, { isActive: false, exercise: null, reps: [] });
+  const { repEventCount, lastRepTimestamp, lastRepWindow } = useBLE();
+  const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+  const modelLoaded = useRef(false);
 
-  // Wire BLE rep events into workout state
+  useEffect(() => {
+    if (!modelLoaded.current) {
+      loadFormModel().then(() => {
+        modelLoaded.current = true;
+      });
+    }
+  }, []);
+
   useEffect(() => {
     if (!state.isActive || !state.exercise || lastRepTimestamp === null) return;
 
     const prevTimestamp = state.reps.at(-1)?.timestamp ?? null;
     const intervalMs = prevTimestamp !== null ? lastRepTimestamp - prevTimestamp : 0;
-    const tempoScore = intervalMs > 0 ? scoreRep(intervalMs, state.exercise) : 'on-pace';
+    const tempoScore: TempoScore = intervalMs > 0 ? scoreRep(intervalMs, state.exercise) : 'on-pace';
 
-    dispatch({
-      type: 'ADD_REP',
-      rep: {
-        index: state.reps.length + 1,
-        timestamp: lastRepTimestamp,
-        intervalMs,
-        tempoScore,
-      },
-    });
-    // repEventCount is intentionally in the dep array to trigger on each new rep
+    let formClass: FormClass = 'GOOD';
+    if (lastRepWindow && lastRepWindow.length === 300 && state.exercise) {
+      formClass = classifyForm(lastRepWindow, state.exercise);
+    }
+
+    const tempoWarning = formClass === 'GOOD' && tempoScore !== 'on-pace';
+
+    const rep: RepRecord = {
+      index: state.reps.length + 1,
+      timestamp: lastRepTimestamp,
+      intervalMs,
+      tempoScore,
+      formClass,
+      tempoWarning,
+    };
+
+    dispatch({ type: 'ADD_REP', rep });
+    speakCoaching(formClass, tempoWarning);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repEventCount]);
 
@@ -82,17 +111,54 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
 
   const endSession = useCallback((): SessionResult => {
     dispatch({ type: 'END_SESSION' });
-    const reps = state.reps;
+
+    const { reps, exercise } = state;
     const totalReps = reps.length;
+    const goodCount = reps.filter((r) => r.formClass === 'GOOD').length;
+    const badCount = reps.filter((r) => r.formClass === 'BAD').length;
+    const tempoWarningCount = reps.filter((r) => r.tempoWarning).length;
     const onPaceCount = reps.filter((r) => r.tempoScore === 'on-pace').length;
     const tooFastCount = reps.filter((r) => r.tempoScore === 'too-fast').length;
     const tooSlowCount = reps.filter((r) => r.tempoScore === 'too-slow').length;
-    const qualityPct = totalReps > 0 ? Math.round((onPaceCount / totalReps) * 100) : 0;
-    return { reps, totalReps, onPaceCount, tooFastCount, tooSlowCount, qualityPct };
-  }, [state.reps]);
+    const qualityPct = totalReps > 0 ? Math.round((goodCount / totalReps) * 100) : 0;
+    const goldenTicket = qualityPct / 100 >= GOLDEN_TICKET_THRESHOLD && totalReps >= 5;
+
+    if (goldenTicket) {
+      const me = state.leaderboard.find((e) => e.isCurrentUser);
+      if (me) {
+        dispatch({
+          type: 'UPDATE_LEADERBOARD',
+          entry: { ...me, goldenTickets: me.goldenTickets + 1 },
+        });
+      }
+    }
+
+    return {
+      exercise: exercise!,
+      reps,
+      totalReps,
+      goodCount,
+      badCount,
+      tempoWarningCount,
+      onPaceCount,
+      tooFastCount,
+      tooSlowCount,
+      qualityPct,
+      goldenTicket,
+    };
+  }, [state]);
 
   return (
-    <WorkoutContext.Provider value={{ isActive: state.isActive, exercise: state.exercise, reps: state.reps, startSession, endSession }}>
+    <WorkoutContext.Provider
+      value={{
+        isActive: state.isActive,
+        exercise: state.exercise,
+        reps: state.reps,
+        leaderboard: state.leaderboard,
+        startSession,
+        endSession,
+      }}
+    >
       {children}
     </WorkoutContext.Provider>
   );

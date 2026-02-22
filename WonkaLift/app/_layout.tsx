@@ -7,8 +7,14 @@ export default function RootLayout() {
   return (
     <BLEProvider>
       <WorkoutProvider>
-        <Stack screenOptions={{ headerShown: false }} />
-        <StatusBar style="auto" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: 'slide_from_right',
+            contentStyle: { backgroundColor: '#1A0A00' },
+          }}
+        />
+        <StatusBar style="light" />
       </WorkoutProvider>
     </BLEProvider>
   );

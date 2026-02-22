@@ -1,7 +1,15 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import {
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { EXERCISES, ExerciseType } from '../src/constants/exercises';
+import { WONKA } from '../src/constants/wonka';
 import { useWorkout } from '../src/contexts/WorkoutContext';
 
 export default function ExerciseSelectScreen() {
@@ -16,43 +24,79 @@ export default function ExerciseSelectScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Select Exercise</Text>
+    <SafeAreaView style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor={WONKA.bg} />
+      <View style={styles.container}>
+        <Text style={styles.title}>Select Exercise</Text>
+        <Text style={styles.subtitle}>Choose your challenge for this set.</Text>
 
-      {EXERCISES.map((ex) => (
+        {EXERCISES.map((ex) => (
+          <TouchableOpacity
+            key={ex.id}
+            style={[styles.option, selected === ex.id && styles.optionSelected]}
+            onPress={() => setSelected(ex.id)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.optionText, selected === ex.id && styles.optionTextSelected]}>
+              {ex.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+
         <TouchableOpacity
-          key={ex.id}
-          style={[styles.option, selected === ex.id && styles.optionSelected]}
-          onPress={() => setSelected(ex.id)}
+          style={[styles.button, !selected && styles.buttonDisabled]}
+          onPress={handleStart}
+          disabled={!selected}
+          activeOpacity={0.8}
         >
-          <Text style={[styles.optionText, selected === ex.id && styles.optionTextSelected]}>
-            {ex.label}
-          </Text>
+          <Text style={styles.buttonText}>START SET</Text>
         </TouchableOpacity>
-      ))}
-
-      <TouchableOpacity
-        style={[styles.button, !selected && styles.buttonDisabled]}
-        onPress={handleStart}
-        disabled={!selected}
-      >
-        <Text style={styles.buttonText}>Start Set</Text>
-      </TouchableOpacity>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: '#fff' },
-  title: { fontSize: 28, fontWeight: '700', marginBottom: 32 },
-  option: {
-    width: '100%', padding: 18, borderRadius: 8, borderWidth: 2,
-    borderColor: '#ddd', marginBottom: 12, alignItems: 'center',
+  root: { flex: 1, backgroundColor: WONKA.bg },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  title: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: WONKA.gold,
+    letterSpacing: 1,
+    marginBottom: 4,
   },
-  optionSelected: { borderColor: '#1a1a1a', backgroundColor: '#1a1a1a' },
-  optionText: { fontSize: 18, color: '#333', fontWeight: '500' },
-  optionTextSelected: { color: '#fff' },
-  button: { backgroundColor: '#1a1a1a', paddingVertical: 14, paddingHorizontal: 48, borderRadius: 8, marginTop: 24 },
-  buttonDisabled: { backgroundColor: '#888' },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  subtitle: {
+    fontSize: 14,
+    color: WONKA.textLight,
+    opacity: 0.5,
+    marginBottom: 36,
+  },
+  option: {
+    width: '100%',
+    padding: 20,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: WONKA.goldDark + '55',
+    backgroundColor: '#2A1000',
+    marginBottom: 14,
+    alignItems: 'center',
+  },
+  optionSelected: {
+    borderColor: WONKA.gold,
+    backgroundColor: WONKA.purple,
+  },
+  optionText: { fontSize: 20, color: WONKA.textLight, fontWeight: '700' },
+  optionTextSelected: { color: WONKA.gold },
+  button: {
+    backgroundColor: WONKA.orange,
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+    borderRadius: 14,
+    marginTop: 24,
+    minWidth: 220,
+    alignItems: 'center',
+  },
+  buttonDisabled: { backgroundColor: '#444' },
+  buttonText: { color: WONKA.textLight, fontSize: 18, fontWeight: '900', letterSpacing: 1 },
 });

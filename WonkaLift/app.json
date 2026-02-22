@@ -40,9 +40,9 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#1A0A00",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#1A0A00"
           }
         }
       ],
@@ -51,7 +51,8 @@
         {
           "bluetoothAlwaysPermission": "Allow WonkaLift to connect to your wristband."
         }
-      ]
+      ],
+      "react-native-fast-tflite"
     ],
     "experiments": {
       "typedRoutes": true,
