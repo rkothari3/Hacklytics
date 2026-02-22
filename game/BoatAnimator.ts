@@ -92,18 +92,20 @@ export function useBoatAnimator(lastRep: RepResult | null) {
             }),
           ]),
         ]),
-        Animated.spring(boatX, {
-          toValue: 0,
-          friction: 4,
-          tension: 50,
-          useNativeDriver: true,
-        }),
-        Animated.spring(boatRotation, {
-          toValue: 0,
-          friction: 4,
-          tension: 50,
-          useNativeDriver: true,
-        }),
+        Animated.parallel([
+          Animated.spring(boatX, {
+            toValue: 0,
+            friction: 4,
+            tension: 50,
+            useNativeDriver: true,
+          }),
+          Animated.spring(boatRotation, {
+            toValue: 0,
+            friction: 4,
+            tension: 50,
+            useNativeDriver: true,
+          }),
+        ]),
       ]).start();
     }
   }, [lastRep]);
