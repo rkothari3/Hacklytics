@@ -41,3 +41,8 @@ Backend + Data
 
 Snowflake as the session data warehouse — written to directly from the app via Snowflake REST API after each workout
 Databricks for model training pipeline and experiment tracking
+
+
+Random Notes
+- To train w/ dummy data: python ml/train_local.py
+- With real data after collected 6 csv files: python ml/train_local.py --real
