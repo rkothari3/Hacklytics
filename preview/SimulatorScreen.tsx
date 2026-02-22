@@ -24,7 +24,6 @@ export default function SimulatorScreen() {
   const [exercise, setExercise] = useState<Exercise>('BICEP_CURL');
   const [repFeed, setRepFeed] = useState<RepResult[]>([]);
   const [running, setRunning] = useState(false);
-  const [showResults, setShowResults] = useState(false);
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const repRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -45,7 +44,6 @@ export default function SimulatorScreen() {
     setRepFeed([]);
     repRef.current = 0;
     setSummary(null);
-    setShowResults(false);
     setRunning(true);
   }
 
@@ -100,10 +98,10 @@ export default function SimulatorScreen() {
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={styles.stopButton} onPress={() => {
+            setRunning(false);
             setRepFeed([]);
             repRef.current = 0;
             setSummary(null);
-            setShowResults(false);
           }}>
             <Text style={styles.stopText}>↩ RESET</Text>
           </TouchableOpacity>
