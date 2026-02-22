@@ -13,8 +13,8 @@
 #define EXERCISE_CURL           0
 #define EXERCISE_LATERAL_RAISE  1
 
-#define ACTIVE_CLASS            CLASS_GOOD       // <-- change per session
-#define ACTIVE_EXERCISE         EXERCISE_CURL    // <-- change per session
+#define ACTIVE_CLASS            CLASS_BAD       // <-- change per session
+#define ACTIVE_EXERCISE         EXERCISE_LATERAL_RAISE    // <-- change per session
 
 static_assert(ACTIVE_CLASS < 3,    "ACTIVE_CLASS out of range: 0=GOOD 1=SLOPPY 2=BAD");
 static_assert(ACTIVE_EXERCISE < 2, "ACTIVE_EXERCISE out of range: 0=CURL 1=LATERAL_RAISE");
