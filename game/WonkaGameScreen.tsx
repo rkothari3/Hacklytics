@@ -25,6 +25,7 @@ type Props = {
 
 export default function WonkaGameScreen({ exercise, repFeed, leaderboard, onSessionEnd }: Props) {
   const [showResults, setShowResults] = useState(false);
+  const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
 
   const lastRep = repFeed.length > 0 ? repFeed[repFeed.length - 1] : null;
   const goodCount = repFeed.filter(r => r.formClass === 'GOOD').length;
@@ -43,19 +44,15 @@ export default function WonkaGameScreen({ exercise, repFeed, leaderboard, onSess
       goldenTicket: percentGood >= GOLDEN_TICKET_THRESHOLD,
       exercise,
     };
+    setSessionSummary(summary);
     onSessionEnd(summary);
     setShowResults(true);
   }, [totalReps, goodCount, sloppyCount, badCount, percentGood, exercise, onSessionEnd]);
 
-  if (showResults) {
+  if (showResults && sessionSummary) {
     return (
       <ResultsScreen
-        summary={{
-          totalReps, goodCount, sloppyCount, badCount,
-          percentGood,
-          goldenTicket: percentGood >= GOLDEN_TICKET_THRESHOLD,
-          exercise,
-        }}
+        summary={sessionSummary}
         repFeed={repFeed}
         onClose={() => setShowResults(false)}
       />
@@ -124,7 +121,6 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
   },
   goalText: {
     color: COLORS.gold,
@@ -133,6 +129,7 @@ const styles = StyleSheet.create({
   },
   ticketIcon: {
     fontSize: 18,
+    marginLeft: 6,
   },
   doneButton: {
     marginHorizontal: 16,

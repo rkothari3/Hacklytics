@@ -23,5 +23,5 @@ export type SessionSummary = {
   badCount: number;
   percentGood: number;
   goldenTicket: boolean;
-  exercise: string;
+  exercise: Exercise;
 };
