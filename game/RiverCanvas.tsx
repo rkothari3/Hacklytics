@@ -5,7 +5,7 @@ import {
   Animated,
   StyleSheet,
   Easing,
-  Text,
+  Image,
 } from 'react-native';
 import { COLORS, SCREEN_W, RIVER_HEIGHT, RIVER_WIDTH, BANK_WIDTH } from './constants';
 import { RepResult } from './types';
@@ -16,28 +16,32 @@ type Props = {
 };
 
 // Candy cane stripe — alternating red/white vertical bars
-function CandyCaneWall({ side }: { side: 'left' | 'right' }) {
-  const stripes = Array.from({ length: 20 });
+const CandyCaneWall = React.memo(function CandyCaneWall({ side }: { side: 'left' | 'right' }) {
   return (
     <View style={[styles.wall, side === 'left' ? styles.wallLeft : styles.wallRight]}>
-      {stripes.map((_, i) => (
-        <View
-          key={i}
-          style={[
-            styles.stripe,
-            { backgroundColor: i % 2 === 0 ? COLORS.candyRed : COLORS.candyWhite, left: i * 10 },
-          ]}
-        />
-      ))}
-      {/* Lollipops every ~4 stripes */}
+      <Image
+        source={require('./assets/candy_cane_wall.png')}
+        style={styles.candyCaneImg}
+        resizeMode="cover"
+      />
       {[0, 4, 8, 12].map(i => (
         <View key={`lollipop-${i}`} style={[styles.lollipop, { top: (RIVER_HEIGHT / 16) * i + 20 }]}>
-          <Text style={styles.lollipopEmoji}>🍭</Text>
+          <Image source={require('./assets/lollipop.png')} style={styles.lollipopImg} />
         </View>
       ))}
     </View>
   );
-}
+});
+
+// Static Oompa Loompa decoration — two figures, no changing props
+const OompaBank = React.memo(function OompaBank({ side }: { side: 'left' | 'right' }) {
+  return (
+    <View style={side === 'left' ? styles.oompaLeft : styles.oompaRight}>
+      <Image source={require('./assets/oompa_loompa.png')} style={styles.oompaImg} />
+      <Image source={require('./assets/oompa_loompa.png')} style={styles.oompaImg} />
+    </View>
+  );
+});
 
 // Scrolling river tile — looped translateY
 function ScrollingRiver() {
@@ -67,39 +71,23 @@ function ScrollingRiver() {
   );
 }
 
-function RiverTile({ offset = false }: { offset?: boolean }) {
-  // Horizontal ripple lines to suggest flowing chocolate
-  const lines = Array.from({ length: 12 });
+const RiverTile = React.memo(function RiverTile({ offset = false }: { offset?: boolean }) {
   return (
-    <View style={[styles.riverTile, offset && { marginTop: -RIVER_HEIGHT }]}>
-      {lines.map((_, i) => (
-        <View
-          key={i}
-          style={[
-            styles.rippleLine,
-            {
-              top: (RIVER_HEIGHT / 12) * i + 10,
-              opacity: 0.18 + (i % 3) * 0.06,
-              width: RIVER_WIDTH * (0.6 + (i % 4) * 0.08),
-              left: RIVER_WIDTH * (0.05 + (i % 3) * 0.05),
-            },
-          ]}
-        />
-      ))}
-    </View>
+    <Image
+      source={require('./assets/chocolate_river_tile.png')}
+      style={[styles.riverTile, offset && { marginTop: -RIVER_HEIGHT }]}
+      resizeMode="cover"
+    />
   );
-}
+});
 
-export default function RiverCanvas({ lastRep }: Props) {
+function RiverCanvas({ lastRep }: Props) {
   const { boatX, flashOpacity, boatRotation } = useBoatAnimator(lastRep);
 
   return (
     <View style={styles.container}>
       {/* Oompa Loompas on left bank */}
-      <View style={styles.oompaLeft}>
-        <Text style={styles.oompaEmoji}>🧍</Text>
-        <Text style={styles.oompaEmoji}>🧍</Text>
-      </View>
+      <OompaBank side="left" />
 
       {/* Left bank */}
       <CandyCaneWall side="left" />
@@ -131,7 +119,7 @@ export default function RiverCanvas({ lastRep }: Props) {
             },
           ]}
         >
-          <Text style={styles.boatEmoji}>🚣</Text>
+          <Image source={require('./assets/wonka_boat.png')} style={styles.boatImg} />
         </Animated.View>
       </View>
 
@@ -139,13 +127,12 @@ export default function RiverCanvas({ lastRep }: Props) {
       <CandyCaneWall side="right" />
 
       {/* Oompa Loompas on right bank */}
-      <View style={styles.oompaRight}>
-        <Text style={styles.oompaEmoji}>🧍</Text>
-        <Text style={styles.oompaEmoji}>🧍</Text>
-      </View>
+      <OompaBank side="right" />
     </View>
   );
 }
+
+export default React.memo(RiverCanvas);
 
 const styles = StyleSheet.create({
   container: {
@@ -178,19 +165,11 @@ const styles = StyleSheet.create({
   wallRight: {
     width: BANK_WIDTH * 0.65,
   },
-  stripe: {
-    height: RIVER_HEIGHT,
-    width: 10,
-    position: 'absolute',
-  },
   lollipop: {
     position: 'absolute',
     left: 0,
     right: 0,
     alignItems: 'center',
-  },
-  lollipopEmoji: {
-    fontSize: 22,
   },
   riverContainer: {
     width: RIVER_WIDTH,
@@ -210,12 +189,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.chocolateMid,
     position: 'relative',
   },
-  rippleLine: {
-    position: 'absolute',
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: COLORS.chocolateLight,
-  },
   flashOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: COLORS.badFlash,
@@ -226,10 +199,23 @@ const styles = StyleSheet.create({
     left: RIVER_WIDTH / 2 - 22,
     zIndex: 10,
   },
-  boatEmoji: {
-    fontSize: 44,
+  lollipopImg: {
+    width: 28,
+    height: 36,
+    resizeMode: 'contain',
   },
-  oompaEmoji: {
-    fontSize: 28,
+  boatImg: {
+    width: 60,
+    height: 84,
+    resizeMode: 'contain',
+  },
+  oompaImg: {
+    width: 36,
+    height: 48,
+    resizeMode: 'contain',
+  },
+  candyCaneImg: {
+    width: BANK_WIDTH * 0.65,
+    height: RIVER_HEIGHT,
   },
 });

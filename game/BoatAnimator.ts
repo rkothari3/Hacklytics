@@ -1,7 +1,6 @@
 // game/BoatAnimator.ts
 import { useRef, useEffect } from 'react';
 import { Animated, Easing } from 'react-native';
-import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { RepResult } from './types';
 import { ANIM, RIVER_WIDTH } from './constants';
 
@@ -15,6 +14,12 @@ export function useBoatAnimator(lastRep: RepResult | null) {
 
   useEffect(() => {
     if (!lastRep) return;
+
+    // Cancel any in-progress animations before starting new ones,
+    // preventing stacking when reps fire rapidly.
+    boatX.stopAnimation();
+    flashOpacity.stopAnimation();
+    boatRotation.stopAnimation();
 
     if (lastRep.formClass === 'GOOD') {
       // Smooth re-center
@@ -59,11 +64,6 @@ export function useBoatAnimator(lastRep: RepResult | null) {
     if (lastRep.formClass === 'BAD') {
       const slamDirection = Math.random() < 0.5 ? 1 : -1;
 
-      // Haptic buzz
-      ReactNativeHapticFeedback.trigger('impactHeavy', {
-        enableVibrateFallback: true,
-        ignoreAndroidSystemSettings: false,
-      });
 
       // Slam + tilt + flash + re-center
       Animated.sequence([

@@ -2,7 +2,7 @@
 import React from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, ScrollView, StatusBar,
+  SafeAreaView, ScrollView, StatusBar, Image,
 } from 'react-native';
 import { COLORS } from './constants';
 import { SessionSummary, RepResult } from './types';
@@ -37,9 +37,19 @@ export default function ResultsScreen({ summary, repFeed, onClose }: Props) {
 
         {/* Banner */}
         <View style={[styles.banner, { backgroundColor: goldenTicket ? COLORS.gold : '#3A0000' }]}>
-          <Text style={[styles.bannerText, { color: goldenTicket ? COLORS.chocolate : COLORS.candyRed }]}>
-            {goldenTicket ? '🎫  GOLDEN TICKET!' : '🏭  FACTORY REJECTED'}
-          </Text>
+          {goldenTicket ? (
+            <Image
+              source={require('./assets/golden_ticket.png')}
+              style={styles.bannerImage}
+              resizeMode="contain"
+            />
+          ) : (
+            <Image
+              source={require('./assets/factory_rejected.jpg')}
+              style={styles.bannerImage}
+              resizeMode="contain"
+            />
+          )}
           <Text style={[styles.bannerSub, { color: goldenTicket ? COLORS.chocolateMid : '#FF6666' }]}>
             {goldenTicket
               ? `${Math.round(percentGood * 100)}% good reps — Wonka is impressed!`
@@ -106,11 +116,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  bannerText: {
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: 1,
-    textAlign: 'center',
+  bannerImage: {
+    width: 260,
+    height: 120,
+    marginBottom: 8,
   },
   bannerSub: {
     fontSize: 14,

@@ -1,21 +1,21 @@
 // game/DurabilityBar.tsx
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet, Text } from 'react-native';
-import { COLORS, SCREEN_W, DURABILITY_PER_BAD_REP } from './constants';
+import { COLORS, DURABILITY_PER_BAD_REP } from './constants';
 
 type Props = {
   badCount: number;
 };
 
-export default function DurabilityBar({ badCount }: Props) {
+function DurabilityBar({ badCount }: Props) {
   const durability = Math.max(0, 100 - badCount * DURABILITY_PER_BAD_REP);
-  const widthAnim = useRef(new Animated.Value(SCREEN_W - 32)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    Animated.timing(widthAnim, {
-      toValue: ((SCREEN_W - 32) * durability) / 100,
+    Animated.timing(scaleAnim, {
+      toValue: durability / 100,
       duration: 300,
-      useNativeDriver: false, // width animation requires JS driver
+      useNativeDriver: true,
     }).start();
   }, [durability]);
 
@@ -28,7 +28,7 @@ export default function DurabilityBar({ badCount }: Props) {
     <View style={styles.container}>
       <Text style={styles.label}>BOAT DURABILITY</Text>
       <View style={styles.track}>
-        <Animated.View style={[styles.fill, { width: widthAnim, backgroundColor: barColor }]} />
+        <Animated.View style={[styles.fill, { backgroundColor: barColor, transform: [{ scaleX: scaleAnim }] }]} />
       </View>
     </View>
   );
@@ -58,3 +58,5 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
 });
+
+export default React.memo(DurabilityBar);

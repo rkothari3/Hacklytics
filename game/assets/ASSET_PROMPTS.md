@@ -13,8 +13,8 @@ All assets: PNG with transparent background unless noted. Pixel art style, 2x re
 
 ## 2. Wonka Boat (top-down)
 **Filename:** `wonka_boat.png`
-**Size:** 100×140px, transparent background
-**Prompt:** Top-down aerial view of a purple and gold wooden rowboat in Willy Wonka style. Deep purple hull (#6B2D8B) with gold trim (#FFD700). White cursive "WonkaLift" text on side. A single oar visible on each side. No people in boat. Slight drop shadow beneath hull. Fantasy cartoon style, crisp edges.
+**Size:** 150x150px, transparent background
+**Prompt:** Top-down aerial view of a purple and gold wooden rowboat in Willy Wonka style. Deep purple hull (#6B2D8B) with gold trim (#FFD700). A single oar visible on each side. No people in boat. Slight drop shadow beneath hull. Fantasy cartoon style, crisp edges. The boat should show an animated willy wonka in it. 
 
 ---
 

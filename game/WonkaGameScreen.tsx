@@ -1,14 +1,15 @@
 // game/WonkaGameScreen.tsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
 } from 'react-native';
-import { COLORS, SCREEN_W, GOLDEN_TICKET_THRESHOLD } from './constants';
+import { COLORS, GOLDEN_TICKET_THRESHOLD } from './constants';
 import { RepResult, LeaderboardEntry, SessionSummary, Exercise } from './types';
 import RiverCanvas from './RiverCanvas';
 import StatsPanel from './StatsPanel';
@@ -23,16 +24,16 @@ type Props = {
   onSessionEnd: (summary: SessionSummary) => void;
 };
 
-export default function WonkaGameScreen({ exercise, repFeed, leaderboard, onSessionEnd }: Props) {
+function WonkaGameScreen({ exercise, repFeed, leaderboard, onSessionEnd }: Props) {
   const [showResults, setShowResults] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
 
   const lastRep = repFeed.length > 0 ? repFeed[repFeed.length - 1] : null;
-  const goodCount = repFeed.filter(r => r.formClass === 'GOOD').length;
-  const sloppyCount = repFeed.filter(r => r.formClass === 'SLOPPY').length;
-  const badCount = repFeed.filter(r => r.formClass === 'BAD').length;
+  const goodCount = useMemo(() => repFeed.filter(r => r.formClass === 'GOOD').length, [repFeed]);
+  const sloppyCount = useMemo(() => repFeed.filter(r => r.formClass === 'SLOPPY').length, [repFeed]);
+  const badCount = useMemo(() => repFeed.filter(r => r.formClass === 'BAD').length, [repFeed]);
+  const percentGood = useMemo(() => repFeed.length === 0 ? 0 : Math.round((goodCount / repFeed.length) * 100), [goodCount, repFeed.length]);
   const totalReps = repFeed.length;
-  const percentGood = totalReps > 0 ? goodCount / totalReps : 0;
 
   const handleDone = useCallback(() => {
     const summary: SessionSummary = {
@@ -40,8 +41,8 @@ export default function WonkaGameScreen({ exercise, repFeed, leaderboard, onSess
       goodCount,
       sloppyCount,
       badCount,
-      percentGood,
-      goldenTicket: percentGood >= GOLDEN_TICKET_THRESHOLD,
+      percentGood: percentGood / 100,
+      goldenTicket: percentGood / 100 >= GOLDEN_TICKET_THRESHOLD,
       exercise,
     };
     setSessionSummary(summary);
@@ -68,7 +69,7 @@ export default function WonkaGameScreen({ exercise, repFeed, leaderboard, onSess
         <Text style={styles.title}>Wonka River Challenge</Text>
         <View style={styles.headerRight}>
           <Text style={styles.goalText}>GOAL: 80%</Text>
-          <Text style={styles.ticketIcon}>🎫</Text>
+          <Image source={require('./assets/golden_ticket.png')} style={styles.ticketIcon} />
         </View>
       </View>
 
@@ -80,16 +81,16 @@ export default function WonkaGameScreen({ exercise, repFeed, leaderboard, onSess
 
       {/* Stats cards */}
       <StatsPanel
-        repFeed={repFeed}
         goodCount={goodCount}
-        totalReps={totalReps}
-        lastRep={lastRep}
+        sloppyCount={sloppyCount}
+        badCount={badCount}
+        percentGood={percentGood}
       />
 
       {/* Done button */}
       <TouchableOpacity style={styles.doneButton} onPress={handleDone} activeOpacity={0.8}>
         <Text style={styles.doneText}>
-          {percentGood >= GOLDEN_TICKET_THRESHOLD ? 'COLLECT GOLDEN TICKET!' : 'DONE'}
+          {percentGood / 100 >= GOLDEN_TICKET_THRESHOLD ? 'COLLECT GOLDEN TICKET!' : 'DONE'}
         </Text>
       </TouchableOpacity>
 
@@ -128,7 +129,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   ticketIcon: {
-    fontSize: 18,
+    width: 32,
+    height: 15,
+    resizeMode: 'contain',
     marginLeft: 6,
   },
   doneButton: {
@@ -146,3 +149,5 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
 });
+
+export default React.memo(WonkaGameScreen);

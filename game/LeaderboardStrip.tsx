@@ -8,7 +8,7 @@ type Props = {
   entries: LeaderboardEntry[];
 };
 
-export default function LeaderboardStrip({ entries }: Props) {
+function LeaderboardStrip({ entries }: Props) {
   if (!entries || entries.length === 0) {
     return (
       <View style={styles.container}>
@@ -98,3 +98,5 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 });
+
+export default React.memo(LeaderboardStrip);
